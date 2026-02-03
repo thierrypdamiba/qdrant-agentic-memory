@@ -1,0 +1,1 @@
+"""Qdrant Agentic Memory Workshop"""

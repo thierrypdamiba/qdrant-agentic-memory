@@ -1,0 +1,26 @@
+[project]
+name = "qdrant-agentic-memory"
+version = "0.1.0"
+description = "Workshop: Building Agentic Memory Systems with Qdrant"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "qdrant-client>=1.12.0",
+    "fastembed>=0.4.0",
+    "openai>=1.50.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.6.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
