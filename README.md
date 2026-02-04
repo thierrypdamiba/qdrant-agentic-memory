@@ -2,6 +2,29 @@
 
 Build memory systems for AI agents using Qdrant vector database.
 
+## Quick Commands
+
+Run these after activating your virtual environment (`source .venv/bin/activate`):
+
+| Module | Command | Description |
+|--------|---------|-------------|
+| 01: Basics | `python -m workshop.01_basics` | Store and search memories with vector embeddings |
+| 02: Semantic Memory | `python -m workshop.02_semantic_memory` | Categorized memory with filtering and importance |
+| 03: Episodic Memory | `python -m workshop.03_episodic_memory` | Conversation history tracking across sessions |
+| 04: Memory Agent | `python -m workshop.04_memory_agent --mode demo` | Complete agent demo (non-interactive) |
+| 04: Memory Agent | `python -m workshop.04_memory_agent --mode interactive` | Interactive chat with memory |
+| 05: Advanced System | `python -m workshop.05_advanced_memory_system` | Production-grade memory system |
+
+**Module 05 Interactive Commands:**
+```
+/stats        - Show memory statistics
+/recall <q>   - Query all memory tiers
+/reflect      - Run reflection cycle
+/consolidate  - Compress episodes to semantic
+/forget       - Remove decayed memories
+/clear        - Reset all memories
+```
+
 ## What You'll Learn
 
 1. **Basic Memory Storage** - Store and retrieve memories with vector embeddings
@@ -62,29 +85,6 @@ QDRANT_API_KEY=<your-qdrant-api-key>
 | Reflection cycles | Requires OpenAI API key |
 
 **All core memory features work without any API costs.**
-
-## Quick Commands
-
-Run these after activating your virtual environment (`source .venv/bin/activate`):
-
-| Module | Command | Description |
-|--------|---------|-------------|
-| 01: Basics | `python -m workshop.01_basics` | Store and search memories with vector embeddings |
-| 02: Semantic Memory | `python -m workshop.02_semantic_memory` | Categorized memory with filtering and importance |
-| 03: Episodic Memory | `python -m workshop.03_episodic_memory` | Conversation history tracking across sessions |
-| 04: Memory Agent | `python -m workshop.04_memory_agent --mode demo` | Complete agent demo (non-interactive) |
-| 04: Memory Agent | `python -m workshop.04_memory_agent --mode interactive` | Interactive chat with memory |
-| 05: Advanced System | `python -m workshop.05_advanced_memory_system` | Production-grade memory system |
-
-**Module 05 Interactive Commands:**
-```
-/stats        - Show memory statistics
-/recall <q>   - Query all memory tiers
-/reflect      - Run reflection cycle
-/consolidate  - Compress episodes to semantic
-/forget       - Remove decayed memories
-/clear        - Reset all memories
-```
 
 ## Workshop Modules
 
