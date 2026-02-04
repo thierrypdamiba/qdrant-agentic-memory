@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Agentic Memory with Qdrant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0d0d1a; color: #fff; overflow: hidden; }
+
+        .slide {
+            position: absolute;
+            width: 100vw; height: 100vh;
+            display: none;
+            background-size: cover;
+            background-position: center;
+        }
+        .slide.active { display: block; }
+
+        /* Overlay text positioning */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            padding: 50px 60px;
+        }
+
+        /* Slide 1: Title - bottom left text */
+        .s1 .title { position: absolute; bottom: 160px; left: 50px; font-size: 52px; font-weight: 600; background: #0d0d1a; padding: 5px 15px; }
+        .s1 .sub { position: absolute; bottom: 115px; left: 50px; font-size: 18px; color: #a0a0b0; background: #0d0d1a; padding: 5px 15px; }
+
+        /* Slide 2: Astronaut - right side text */
+        .s2 .content { position: absolute; right: 60px; top: 50%; transform: translateY(-50%); max-width: 48%; background: rgba(13,13,26,0.95); padding: 30px; border-radius: 12px; }
+        .s2 h1 { font-size: 44px; font-weight: 700; line-height: 1.15; margin-bottom: 12px; }
+        .s2 .sub { font-size: 16px; color: #888; }
+
+        /* Slide 3: TOC - top area */
+        .s3 .cover { position: absolute; top: 30px; left: 30px; right: 30px; bottom: 100px; background: rgba(13,13,26,0.97); border-radius: 12px; padding: 30px; }
+        .s3 h1 { font-size: 38px; margin-bottom: 30px; }
+        .s3 h1 span { color: #dc3545; }
+        .s3 .toc { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 80px; font-size: 16px; }
+        .s3 .num { color: #dc3545; font-weight: 600; margin-right: 10px; }
+
+        /* Slide 5 style: left text area */
+        .s5 .cover { position: absolute; top: 30px; left: 30px; width: 48%; bottom: 80px; background: rgba(13,13,26,0.97); border-radius: 12px; padding: 25px; }
+        .s5 h1 { font-size: 30px; margin-bottom: 20px; }
+        .s5 h1 span { color: #dc3545; }
+        .s5 .text { font-size: 14px; line-height: 1.6; color: #ccc; }
+        .s5 ul { list-style: none; margin-top: 16px; }
+        .s5 li { padding: 6px 0; }
+        .s5 li::before { content: "•"; color: #dc3545; margin-right: 8px; }
+
+        /* Slide 8 style: feature grid - full coverage */
+        .s8 .cover { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,13,26,0.98); display: flex; padding: 40px; gap: 30px; }
+        .s8 .left { flex: 1; }
+        .s8 .title-box { background: rgba(26,26,46,0.95); padding: 20px; border-radius: 10px; margin-bottom: 12px; }
+        .s8 .title-box h2 { font-size: 24px; margin-bottom: 4px; }
+        .s8 .title-box .sub { color: #888; font-size: 13px; }
+        .s8 .features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .s8 .feat { background: rgba(26,26,46,0.95); padding: 14px; border-radius: 8px; }
+        .s8 .feat h4 { font-size: 13px; color: #dc3545; margin-bottom: 4px; }
+        .s8 .feat p { font-size: 11px; color: #888; }
+        .s8 .right { flex: 1; }
+        .s8 .bullet-box { background: rgba(26,26,46,0.95); padding: 20px; border-radius: 10px; height: 100%; }
+        .s8 .bullet-box h3 { font-size: 20px; margin-bottom: 12px; }
+        .s8 .bullet-box ul { list-style: none; font-size: 13px; }
+        .s8 .bullet-box li { padding: 5px 0; color: #ccc; }
+
+        /* Slide 9 style: 5 cards - full coverage */
+        .s9 .cover { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,13,26,0.98); padding: 40px; }
+        .s9 h1 { font-size: 28px; margin-bottom: 10px; }
+        .s9 h1 span { color: #dc3545; }
+        .s9 .intro { font-size: 13px; color: #888; margin-bottom: 25px; }
+        .s9 .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+        .s9 .card { background: rgba(26,26,46,0.95); padding: 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
+        .s9 .card h4 { font-size: 13px; color: #dc3545; margin-bottom: 8px; }
+        .s9 .card p { font-size: 11px; color: #888; line-height: 1.4; }
+
+        /* Slide 12 style: 6 cards - full coverage */
+        .s12 .cover { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,13,26,0.98); padding: 40px; }
+        .s12 h1 { font-size: 28px; margin-bottom: 20px; }
+        .s12 .cards { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 14px; flex: 1; }
+        .s12 .card { background: rgba(26,26,46,0.95); padding: 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
+        .s12 .card h4 { font-size: 14px; margin-bottom: 8px; }
+        .s12 .card p { font-size: 12px; color: #888; line-height: 1.4; }
+
+        /* Slide 13 style: 4 features - full coverage */
+        .s13 .cover { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,13,26,0.98); padding: 40px; }
+        .s13 h1 { font-size: 28px; margin-bottom: 20px; }
+        .s13 h1 span { color: #dc3545; }
+        .s13 .features { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 600px; }
+        .s13 .feat { background: rgba(26,26,46,0.95); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
+        .s13 .feat h4 { font-size: 13px; color: #dc3545; margin-bottom: 6px; }
+        .s13 .feat p { font-size: 11px; color: #888; line-height: 1.4; }
+
+        /* Code block */
+        .code { background: rgba(21,21,32,0.95); border-radius: 8px; padding: 16px; font-family: 'Monaco', monospace; font-size: 12px; line-height: 1.5; border: 1px solid rgba(255,255,255,0.08); white-space: pre; overflow: auto; }
+        .code .kw { color: #c586c0; }
+        .code .str { color: #ce9178; }
+        .code .cmt { color: #6a9955; }
+        .code .fn { color: #dcdcaa; }
+
+        /* Navigation */
+        .nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 100; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; }
+        .dot.active { background: #dc3545; }
+        .counter { position: fixed; bottom: 20px; right: 30px; color: #666; font-size: 13px; z-index: 100; }
+    </style>
+</head>
+<body>
+    <!-- 1: Title -->
+    <div class="slide s1 active" style="background-image: url('images/slide-01.png');">
+        <div class="title">Agentic Memory</div>
+        <div class="sub">Building Persistent Memory Systems with Qdrant</div>
+    </div>
+
+    <!-- 2: Astronaut Workshop Title -->
+    <div class="slide s2" style="background-image: url('images/slide-02.png');">
+        <div class="content">
+            <h1>Building Agentic Memory with Qdrant</h1>
+            <div class="sub">ODSC East 2025 Workshop</div>
+        </div>
+    </div>
+
+    <!-- 3: Table of Contents -->
+    <div class="slide s3" style="background-image: url('images/slide-03.png');">
+        <div class="cover">
+            <h1>Table of <span>Contents</span></h1>
+            <div class="toc">
+                <div><span class="num">1.</span>Why Agents Need Memory</div>
+                <div><span class="num">5.</span>Workshop 03: Episodic Memory</div>
+                <div><span class="num">2.</span>Setup & Prerequisites</div>
+                <div><span class="num">6.</span>Workshop 04: Memory Agent</div>
+                <div><span class="num">3.</span>Workshop 01: Basic Storage</div>
+                <div><span class="num">7.</span>Workshop 05: Advanced System</div>
+                <div><span class="num">4.</span>Workshop 02: Semantic Memory</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4: Why Memory Matters -->
+    <div class="slide s5" style="background-image: url('images/slide-05.png');">
+        <div class="cover">
+            <h1>Why Agents <span>Need Memory</span></h1>
+            <div class="text">
+                <p>LLMs are stateless. Every conversation starts fresh.</p>
+                <p style="margin-top: 12px;">User says "I'm vegan" → Next turn: steak recommendation</p>
+                <ul>
+                    <li>Can't remember preferences across sessions</li>
+                    <li>Can't learn from past interactions</li>
+                    <li>Can't build context over time</li>
+                    <li>Can't provide personalization</li>
+                    <li>Repeats the same mistakes</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5: Memory Types -->
+    <div class="slide s8" style="background-image: url('images/slide-08.png');">
+        <div class="cover">
+            <div class="left">
+                <div class="title-box">
+                    <h2>Four Memory Types</h2>
+                    <div class="sub">Inspired by human cognition</div>
+                </div>
+                <div class="features">
+                    <div class="feat"><h4>Working Memory</h4><p>Current session buffer</p></div>
+                    <div class="feat"><h4>Semantic Memory</h4><p>Facts, preferences, knowledge</p></div>
+                    <div class="feat"><h4>Episodic Memory</h4><p>Past conversations</p></div>
+                    <div class="feat"><h4>Meta Memory</h4><p>Reflections and insights</p></div>
+                </div>
+            </div>
+            <div class="right">
+                <div class="bullet-box">
+                    <h3>Key Benefits</h3>
+                    <ul>
+                        <li>Persistent context across sessions</li>
+                        <li>Personalized responses</li>
+                        <li>Learning from interactions</li>
+                        <li>Efficient context management</li>
+                        <li>Natural forgetting mechanism</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6: Setup Prerequisites -->
+    <div class="slide s9" style="background-image: url('images/slide-09.png');">
+        <div class="cover">
+            <h1>Setup & <span>Prerequisites</span></h1>
+            <p class="intro">Everything you need for the workshop. Embeddings are FREE with FastEmbed.</p>
+            <div class="cards">
+                <div class="card"><h4>Python 3.11+</h4><p>Modern Python with type hints</p></div>
+                <div class="card"><h4>Qdrant Cloud</h4><p>Free tier at cloud.qdrant.io</p></div>
+                <div class="card"><h4>FastEmbed</h4><p>Local embeddings, no API cost</p></div>
+                <div class="card"><h4>OpenAI (opt)</h4><p>For LLM features in 04-05</p></div>
+                <div class="card"><h4>uv</h4><p>Fast package management</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7: Workshop 01 -->
+    <div class="slide s5" style="background-image: url('images/slide-05.png');">
+        <div class="cover">
+            <h1>Workshop 01: <span>Basic Storage</span></h1>
+            <div class="text">
+                <p>Store and retrieve memories with vector embeddings.</p>
+                <div class="code" style="margin-top: 16px;">
+<span class="kw">def</span> <span class="fn">store_memory</span>(client, embedder, content):
+    embedding = <span class="fn">list</span>(embedder.embed([content]))[0]
+
+    client.<span class="fn">upsert</span>(
+        collection_name=<span class="str">"memories"</span>,
+        points=[PointStruct(
+            id=<span class="fn">str</span>(uuid.uuid4()),
+            vector=embedding.tolist(),
+            payload={<span class="str">"content"</span>: content}
+        )]
+    )</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 8: Workshop 02 -->
+    <div class="slide s5" style="background-image: url('images/slide-05.png');">
+        <div class="cover">
+            <h1>Workshop 02: <span>Semantic Memory</span></h1>
+            <div class="text">
+                <p>Categorize memories with Qdrant payload filtering.</p>
+                <div class="code" style="margin-top: 16px;">
+<span class="cmt"># Search with category filter</span>
+results = client.<span class="fn">query_points</span>(
+    collection_name=<span class="str">"semantic_memory"</span>,
+    query=embedding,
+    query_filter=Filter(must=[
+        FieldCondition(
+            key=<span class="str">"category"</span>,
+            match=MatchValue(value=<span class="str">"preference"</span>)
+        )
+    ])
+)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 9: Workshop 03 -->
+    <div class="slide s9" style="background-image: url('images/slide-09.png');">
+        <div class="cover">
+            <h1>Workshop 03: <span>Episodic Memory</span></h1>
+            <p class="intro">Store conversation history with temporal context and session tracking.</p>
+            <div class="cards">
+                <div class="card"><h4>Conversation Turns</h4><p>Store each message with embeddings</p></div>
+                <div class="card"><h4>Session Groups</h4><p>Group turns by session ID</p></div>
+                <div class="card"><h4>Temporal Search</h4><p>Find past conversations by topic</p></div>
+                <div class="card"><h4>Summaries</h4><p>Compress sessions with LLM</p></div>
+                <div class="card"><h4>Context</h4><p>Reconstruct relevant history</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 10: Workshop 04 -->
+    <div class="slide s5" style="background-image: url('images/slide-05.png');">
+        <div class="cover">
+            <h1>Workshop 04: <span>Memory Agent</span></h1>
+            <div class="text">
+                <p>Interactive chat agent with persistent memory.</p>
+                <div class="code" style="margin-top: 16px;">
+<span class="kw">def</span> <span class="fn">chat</span>(user_message):
+    <span class="cmt"># 1. Retrieve relevant memories</span>
+    memories = <span class="fn">search_memories</span>(user_message)
+
+    <span class="cmt"># 2. Generate with context</span>
+    response = openai.chat.completions.<span class="fn">create</span>(
+        model=<span class="str">"gpt-4o-mini"</span>,
+        messages=[
+            {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: context},
+            {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: user_message}
+        ]
+    )
+
+    <span class="cmt"># 3. Store new memories</span>
+    <span class="fn">extract_and_store</span>(user_message, response)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 11: Workshop 05 Architecture -->
+    <div class="slide s13" style="background-image: url('images/slide-13.png');">
+        <div class="cover">
+            <h1>Workshop 05: <span>Advanced System</span></h1>
+            <div class="features">
+                <div class="feat"><h4>Working Memory</h4><p>Current session buffer. Volatile.</p></div>
+                <div class="feat"><h4>Episodic Memory</h4><p>Past conversations. Time-bound.</p></div>
+                <div class="feat"><h4>Semantic Memory</h4><p>Consolidated facts. Persistent.</p></div>
+                <div class="feat"><h4>Meta Memory</h4><p>Reflections about the user.</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 12: Advanced Features -->
+    <div class="slide s12" style="background-image: url('images/slide-12.png');">
+        <div class="cover">
+            <h1>Advanced Features</h1>
+            <div class="cards">
+                <div class="card"><h4>Memory Decay</h4><p>7-day half-life exponential decay. Unused memories fade.</p></div>
+                <div class="card"><h4>Consolidation</h4><p>Episodes compress to semantic facts during "sleep" cycles.</p></div>
+                <div class="card"><h4>Reflection</h4><p>Agent reviews memories to extract patterns and insights.</p></div>
+                <div class="card"><h4>Importance Scoring</h4><p>Access frequency boosts memory strength.</p></div>
+                <div class="card"><h4>Unified Recall</h4><p>Query all tiers simultaneously with weighted ranking.</p></div>
+                <div class="card"><h4>Forgetting</h4><p>Prune low-value memories to prevent bloat.</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 13: Decay Formula -->
+    <div class="slide s5" style="background-image: url('images/slide-05.png');">
+        <div class="cover">
+            <h1>Memory <span>Decay Formula</span></h1>
+            <div class="text">
+                <p>Inspired by Ebbinghaus forgetting curve:</p>
+                <div class="code" style="margin-top: 16px; font-size: 14px;">
+strength = base × e^(-λt) × (1 + log(access_count))
+
+base        = Initial importance (0.0 to 1.0)
+λ           = Decay rate (7-day half-life)
+t           = Days since creation
+access_count = Retrieval frequency boost</div>
+                <p style="margin-top: 16px;">Memories decay to 50% after 7 days. Frequent access boosts strength.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 14: Key Takeaways -->
+    <div class="slide s12" style="background-image: url('images/slide-12.png');">
+        <div class="cover">
+            <h1>Key Takeaways</h1>
+            <div class="cards">
+                <div class="card"><h4>Vector Search</h4><p>Semantic similarity enables natural language retrieval.</p></div>
+                <div class="card"><h4>Payload Filters</h4><p>Combine vectors with metadata for precise queries.</p></div>
+                <div class="card"><h4>Memory Types</h4><p>Working, semantic, episodic serve different purposes.</p></div>
+                <div class="card"><h4>Temporal Decay</h4><p>Natural forgetting keeps context relevant.</p></div>
+                <div class="card"><h4>Consolidation</h4><p>Episodes compress into durable semantic facts.</p></div>
+                <div class="card"><h4>Free Embeddings</h4><p>FastEmbed runs locally with zero API costs.</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 15: Resources -->
+    <div class="slide s5" style="background-image: url('images/slide-05.png');">
+        <div class="cover">
+            <h1>Resources & <span>Next Steps</span></h1>
+            <div class="text">
+                <ul style="font-size: 15px; line-height: 2;">
+                    <li><strong>Workshop:</strong> github.com/thierrypdamiba/qdrant-agentic-memory</li>
+                    <li><strong>Qdrant Cloud:</strong> cloud.qdrant.io (free tier)</li>
+                    <li><strong>Docs:</strong> qdrant.tech/documentation</li>
+                    <li><strong>FastEmbed:</strong> github.com/qdrant/fastembed</li>
+                    <li><strong>Discord:</strong> discord.gg/qdrant</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 16: Thank You -->
+    <div class="slide" style="background-image: url('images/slide-19.png');"></div>
+
+    <!-- Nav -->
+    <div class="nav" id="nav"></div>
+    <div class="counter" id="counter">1 / 16</div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const nav = document.getElementById('nav');
+        const counter = document.getElementById('counter');
+        let current = 0;
+
+        slides.forEach((_, i) => {
+            const dot = document.createElement('div');
+            dot.className = 'dot' + (i === 0 ? ' active' : '');
+            dot.onclick = () => goTo(i);
+            nav.appendChild(dot);
+        });
+
+        function goTo(i) {
+            slides[current].classList.remove('active');
+            nav.children[current].classList.remove('active');
+            current = (i + slides.length) % slides.length;
+            slides[current].classList.add('active');
+            nav.children[current].classList.add('active');
+            counter.textContent = `${current + 1} / ${slides.length}`;
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goTo(current + 1); }
+            else if (e.key === 'ArrowLeft') goTo(current - 1);
+        });
+
+        let tx = 0;
+        document.addEventListener('touchstart', e => tx = e.touches[0].clientX);
+        document.addEventListener('touchend', e => {
+            const d = tx - e.changedTouches[0].clientX;
+            if (Math.abs(d) > 50) goTo(current + (d > 0 ? 1 : -1));
+        });
+    </script>
+</body>
+</html>

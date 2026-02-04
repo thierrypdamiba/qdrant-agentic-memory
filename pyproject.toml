@@ -12,6 +12,9 @@ dependencies = [
     "rich>=13.0.0",
 ]
 
+[tool.setuptools.packages.find]
+include = ["workshop*"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",

@@ -1,5 +1,6 @@
 """Workshop 04: Complete Memory-Augmented Agent"""
 
+import argparse
 import uuid
 from datetime import datetime
 
@@ -192,7 +193,7 @@ Be concise and helpful."""
 
 
 def demo_mode():
-    rprint(Panel("Workshop 04: Memory Agent Demo (FREE core features)", style="bold blue"))
+    rprint(Panel("Workshop 04: Memory Agent Demo — Seeded memories, recall & chat", style="bold blue"))
 
     agent = MemoryAgent(agent_id="demo-agent")
     agent.clear_memories()
@@ -299,11 +300,23 @@ def interactive_mode():
 
 
 def main():
-    mode = Prompt.ask(
-        "Select mode",
+    parser = argparse.ArgumentParser(description="Memory Agent Workshop")
+    parser.add_argument(
+        "--mode",
         choices=["demo", "interactive"],
-        default="demo",
+        default=None,
+        help="Run mode: demo or interactive",
     )
+    args = parser.parse_args()
+
+    if args.mode:
+        mode = args.mode
+    else:
+        mode = Prompt.ask(
+            "Select mode",
+            choices=["demo", "interactive"],
+            default="demo",
+        )
 
     if mode == "demo":
         demo_mode()

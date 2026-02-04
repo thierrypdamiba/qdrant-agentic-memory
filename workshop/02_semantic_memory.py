@@ -170,7 +170,7 @@ class SemanticMemory:
 
 
 def main():
-    rprint(Panel("Workshop 02: Semantic Memory System (FREE)", style="bold blue"))
+    rprint(Panel("Workshop 02: Semantic Memory — Types, importance & filtered recall", style="bold blue"))
 
     memory = SemanticMemory()
     memory.clear()

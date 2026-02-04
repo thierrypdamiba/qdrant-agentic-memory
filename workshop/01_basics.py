@@ -93,7 +93,7 @@ def search_memories(
 
 
 def main():
-    rprint(Panel("Workshop 01: Basic Memory Storage (FREE)", style="bold blue"))
+    rprint(Panel("Workshop 01: Basic Memory Storage — Store & search with vector embeddings", style="bold blue"))
 
     client = create_client()
     embedder = create_embedder()

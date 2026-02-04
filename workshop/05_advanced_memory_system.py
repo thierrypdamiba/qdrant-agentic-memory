@@ -460,17 +460,32 @@ Only extract useful information. Return ONLY the JSON array.""",
                         "role": "system",
                         "content": """You are reflecting on what you know about a user.
 Generate 3-5 high-level insights that synthesize patterns across memories.
-Return JSON array with objects having:
+Return ONLY a JSON array, no other text. Each object must have:
 - "insight": The synthesized understanding
-- "confidence": 0.0-1.0
-- "actionable": How this should influence future interactions""",
+- "confidence": number 0.0-1.0
+- "actionable": How this should influence future interactions
+
+Example: [{"insight": "...", "confidence": 0.8, "actionable": "..."}]""",
                     },
                     {"role": "user", "content": reflection_prompt},
                 ],
                 max_tokens=500,
             )
 
-            insights = json.loads(response.choices[0].message.content)
+            raw = (response.choices[0].message.content or "").strip()
+            # Strip markdown code block if present (```json or ```)
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1] if "\n" in raw else raw[3:]
+                if raw.startswith("json"):
+                    raw = raw[4:].lstrip()
+            if raw.endswith("```"):
+                raw = raw.rsplit("```", 1)[0].rstrip()
+            # Extract JSON array in case there's extra text
+            start = raw.find("[")
+            end = raw.rfind("]") + 1
+            if start >= 0 and end > start:
+                raw = raw[start:end]
+            insights = json.loads(raw)
 
             for insight in insights:
                 if isinstance(insight, dict) and "insight" in insight:
@@ -660,52 +675,138 @@ def show_memory_stats(mem: AdvancedMemorySystem):
     rprint(table)
 
 
+# Shared seed data for demo and interactive mode
+DEMO_SEED_DATA = [
+    # Facts about user
+    ("User is a Python developer working on ML projects", "fact", 0.8),
+    ("User's project uses FastAPI and Qdrant", "fact", 0.75),
+    ("User works at a fintech startup in NYC", "fact", 0.6),
+    ("User has 5 years of experience in backend development", "fact", 0.7),
+    ("User's team follows trunk-based development", "fact", 0.55),
+    ("The codebase has 80% test coverage", "fact", 0.5),
+    ("Production runs on AWS with EKS", "fact", 0.65),
+    ("The API serves 50k daily active users", "fact", 0.7),
+    # Preferences
+    ("User prefers functional programming patterns", "preference", 0.9),
+    ("User dislikes overly verbose explanations", "preference", 0.7),
+    ("User wants type hints on all functions", "preference", 0.85),
+    ("User prefers composition over inheritance", "preference", 0.8),
+    ("User likes early returns over nested conditionals", "preference", 0.75),
+    ("User prefers pytest over unittest", "preference", 0.7),
+    ("User wants code examples more than theory", "preference", 0.85),
+    ("User dislikes unnecessary abstractions", "preference", 0.8),
+    # Goals
+    ("User is building a recommendation system for e-commerce", "goal", 0.85),
+    ("User wants to reduce API latency to under 50ms", "goal", 0.8),
+    ("User plans to implement real-time personalization", "goal", 0.75),
+    ("User needs to scale to 100k concurrent users", "goal", 0.7),
+    ("User wants to add A/B testing for recommendations", "goal", 0.65),
+    # Skills
+    ("User knows PyTorch and has trained custom models", "skill", 0.8),
+    ("User is proficient with Docker and Kubernetes", "skill", 0.75),
+    ("User can write complex SQL queries", "skill", 0.7),
+    ("User has experience with Kafka for event streaming", "skill", 0.65),
+    ("User knows how to use Qdrant for vector search", "skill", 0.85),
+    # Relationships
+    ("User reports to Sarah, the engineering director", "relationship", 0.5),
+    ("User mentors two junior developers", "relationship", 0.55),
+    ("User collaborates closely with the ML team", "relationship", 0.6),
+]
+
+# Past conversation episodes (summary, full_conversation, importance)
+DEMO_EPISODES = [
+    (
+        "User asked about structuring a recommendation API and handling cold-start users. Discussed RESTful design and content-based vs collaborative filtering.",
+        "user: How should I structure my recommendation API?\nassistant: Use a RESTful design with endpoints for recommendations, user profiles, and item catalogs.\nuser: What about handling cold-start users?\nassistant: Use content-based filtering initially, then transition to collaborative filtering as you gather data.",
+        0.7,
+    ),
+    (
+        "User discussed reducing API latency and deployment on EKS. Talked about connection pooling and caching strategies.",
+        "user: How can I get my API under 50ms?\nassistant: Focus on connection pooling, query optimization, and caching hot paths.\nuser: We're on EKS.\nassistant: Use node-local caching and consider read replicas for the database.",
+        0.6,
+    ),
+]
+
+# Meta insights (insight, confidence, actionable)
+DEMO_META_INSIGHTS = [
+    (
+        "User is a practical engineer who values code examples and concrete advice over long explanations.",
+        0.85,
+        "Keep responses concise with runnable examples when possible.",
+    ),
+    (
+        "User is building production ML systems and cares about latency, scale, and deployment.",
+        0.8,
+        "Prioritize production-ready patterns and mention tradeoffs.",
+    ),
+]
+
+
+def _seed_semantic_memories(mem: AdvancedMemorySystem) -> int:
+    """Seed semantic memory with demo data. Returns count stored."""
+    for content, mtype, importance in DEMO_SEED_DATA:
+        mem.store_semantic(content, mtype, importance)
+    return len(DEMO_SEED_DATA)
+
+
+def _seed_episodic(mem: AdvancedMemorySystem) -> int:
+    """Seed episodic memory with past session summaries. Returns count stored."""
+    now = datetime.now()
+    for i, (summary, full_conversation, importance) in enumerate(DEMO_EPISODES):
+        session_id = f"seed-session-{i + 1}"
+        created = (now - timedelta(days=2 + i)).isoformat()
+        mem.qdrant.upsert(
+            collection_name=EPISODIC_MEMORY,
+            points=[PointStruct(
+                id=str(uuid.uuid4()),
+                vector=mem._embed(summary),
+                payload={
+                    "agent_id": mem.agent_id,
+                    "session_id": session_id,
+                    "summary": summary,
+                    "turn_count": full_conversation.count("\n") + 1,
+                    "full_conversation": full_conversation,
+                    "importance": importance,
+                    "access_count": 0,
+                    "last_accessed": now.isoformat(),
+                    "created_at": created,
+                    "consolidated": False,
+                },
+            )],
+        )
+    return len(DEMO_EPISODES)
+
+
+def _seed_meta(mem: AdvancedMemorySystem) -> int:
+    """Seed meta memory with demo insights. Returns count stored."""
+    for insight, confidence, actionable in DEMO_META_INSIGHTS:
+        mem.qdrant.upsert(
+            collection_name=META_MEMORY,
+            points=[PointStruct(
+                id=str(uuid.uuid4()),
+                vector=mem._embed(insight),
+                payload={
+                    "agent_id": mem.agent_id,
+                    "reflection_type": "user_insight",
+                    "insight": insight,
+                    "confidence": confidence,
+                    "actionable": actionable,
+                    "created_at": datetime.now().isoformat(),
+                },
+            )],
+        )
+    return len(DEMO_META_INSIGHTS)
+
+
 def demo_memory_lifecycle():
-    rprint(Panel("Advanced Memory System Demo (FREE core features)", style="bold magenta"))
+    rprint(Panel("Workshop 05: Advanced Memory System Demo — Tiers, decay, consolidation & reflection", style="bold magenta"))
 
     mem = AdvancedMemorySystem(agent_id="demo-advanced")
     mem.clear_all()
 
     rprint("\n[bold]1. Seeding initial knowledge...[/bold]")
-    seed_data = [
-        # Facts about user
-        ("User is a Python developer working on ML projects", "fact", 0.8),
-        ("User's project uses FastAPI and Qdrant", "fact", 0.75),
-        ("User works at a fintech startup in NYC", "fact", 0.6),
-        ("User has 5 years of experience in backend development", "fact", 0.7),
-        ("User's team follows trunk-based development", "fact", 0.55),
-        ("The codebase has 80% test coverage", "fact", 0.5),
-        ("Production runs on AWS with EKS", "fact", 0.65),
-        ("The API serves 50k daily active users", "fact", 0.7),
-        # Preferences
-        ("User prefers functional programming patterns", "preference", 0.9),
-        ("User dislikes overly verbose explanations", "preference", 0.7),
-        ("User wants type hints on all functions", "preference", 0.85),
-        ("User prefers composition over inheritance", "preference", 0.8),
-        ("User likes early returns over nested conditionals", "preference", 0.75),
-        ("User prefers pytest over unittest", "preference", 0.7),
-        ("User wants code examples more than theory", "preference", 0.85),
-        ("User dislikes unnecessary abstractions", "preference", 0.8),
-        # Goals
-        ("User is building a recommendation system for e-commerce", "goal", 0.85),
-        ("User wants to reduce API latency to under 50ms", "goal", 0.8),
-        ("User plans to implement real-time personalization", "goal", 0.75),
-        ("User needs to scale to 100k concurrent users", "goal", 0.7),
-        ("User wants to add A/B testing for recommendations", "goal", 0.65),
-        # Skills
-        ("User knows PyTorch and has trained custom models", "skill", 0.8),
-        ("User is proficient with Docker and Kubernetes", "skill", 0.75),
-        ("User can write complex SQL queries", "skill", 0.7),
-        ("User has experience with Kafka for event streaming", "skill", 0.65),
-        ("User knows how to use Qdrant for vector search", "skill", 0.85),
-        # Relationships
-        ("User reports to Sarah, the engineering director", "relationship", 0.5),
-        ("User mentors two junior developers", "relationship", 0.55),
-        ("User collaborates closely with the ML team", "relationship", 0.6),
-    ]
-    for content, mtype, importance in seed_data:
-        mem.store_semantic(content, mtype, importance)
-    rprint(f"  Stored {len(seed_data)} semantic memories across {len(set(m[1] for m in seed_data))} types")
+    n = _seed_semantic_memories(mem)
+    rprint(f"  Stored {n} semantic memories across {len(set(m[1] for m in DEMO_SEED_DATA))} types")
 
     rprint("\n[bold]2. Testing memory recall...[/bold]")
     queries = [
@@ -753,10 +854,21 @@ def demo_memory_lifecycle():
 
 
 def interactive_mode():
-    rprint(Panel("Advanced Memory System - Interactive Mode", style="bold magenta"))
+    rprint(Panel("Workshop 05: Advanced Memory System — Interactive chat & commands", style="bold magenta"))
 
     agent_id = Prompt.ask("Agent ID", default="my-agent")
     mem = AdvancedMemorySystem(agent_id=agent_id)
+
+    seed_choice = Prompt.ask(
+        "Seed demo memories so all tiers have data?",
+        choices=["y", "n"],
+        default="y",
+    )
+    if seed_choice == "y":
+        n_sem = _seed_semantic_memories(mem)
+        n_ep = _seed_episodic(mem)
+        n_meta = _seed_meta(mem)
+        rprint(f"[green]Seeded: {n_sem} semantic, {n_ep} episodic, {n_meta} meta. Use /stats to see counts.[/green]")
 
     rprint(f"\n[green]Started agent '{agent_id}' (session: {mem.session_id})[/green]")
     rprint("Commands: /stats, /recall <query>, /reflect, /consolidate, /forget, /clear, /quit")
@@ -803,7 +915,8 @@ def interactive_mode():
                     if isinstance(insight, dict):
                         rprint(f"  {insight.get('insight', 'N/A')}")
             else:
-                rprint(f"  [yellow]{result.get('status', 'Unknown')}[/yellow]")
+                msg = result.get("error") or result.get("status", "Unknown")
+                rprint(f"  [red]{msg}[/red]")
             continue
 
         elif user_input.lower() == "/consolidate":

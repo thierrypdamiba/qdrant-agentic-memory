@@ -184,7 +184,7 @@ class EpisodicMemory:
 
 
 def main():
-    rprint(Panel("Workshop 03: Episodic Memory for Conversations (FREE)", style="bold blue"))
+    rprint(Panel("Workshop 03: Episodic Memory — Conversation history & session recall", style="bold blue"))
 
     memory = EpisodicMemory()
     memory.clear()
